@@ -4,14 +4,31 @@ import os
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-t", "--times", action="store_true",
-help="preserve modification times")
-parser.add_argument("-p", "--perms", action="store_true",
-help="preserve permissions")
 parser.add_argument("SRC_FILE", type=str)
 parser.add_argument("DESTINATION", type=str)
+parser.add_argument("-c", "--checksum", action ='store_true',
+                   help='skip based on checksum, not mod-time & size')
+parser.add_argument("-u", "--update", action ='store_true',
+                   help='update destination files in-place')
 args = parser.parse_args()
 
 def copy(src,des):
-    content = os.open(src, os.O_RDONLY)
-    
+    if os.path.isfile(src):
+        file1 = os.open(src,os.O_RDONLY)
+        fileInfo = os.stat(src)
+        if os.path.exists(des):
+            if os.path.isdir(des):
+                file2 = os.open(des+'/'+src,os.O_WRONLY|os.O_CREAT)
+            elif os.path.isfile(des):
+                file2 = os.open(des,os.O_WRONLY|os.O_CREAT)
+        else:
+            if des[-1] == '/':
+                name = des.split('/')
+                os.mkdir(os.path.abspath(name[0]))
+                file2 = os.open(des+'/'+src,os.O_WRONLY|os.O_CREAT)
+            else:
+                file2 = os.open(des,os.O_WRONLY|os.O_CREAT)
+        os.write(file2,os.read(file1,fileInfo.st_size))
+        os.utime(file2,(fileInfo.st_ctime, fileInfo.st_mtime))
+        os.chmod(file2,fileInfo.st_mode)
+copy(args.SRC_FILE,args.DESTINATION)
