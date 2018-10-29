@@ -13,9 +13,40 @@ parser.add_argument("-u", "--update", action ='store_true',
 args = parser.parse_args()
 
 def copy(src,des):
-    if os.path.isfile(src):
+    fileInfo = os.stat(src)
+    linkto = os.readlink(src)
+    if os.path.islink(src):
+        if os.path.exists(des):
+            if os.path.isdir(des):
+                os.symlink(linkto,des+ '/' +src)
+            elif os.path.isfile(des):
+                os.unlink(des)
+                os.symlink(linkto,des)
+        else:
+            if des[-1] == '/':
+                name = des.split('/')
+                os.mkdir(os.path.abspath(name[0]))
+                os.symlink(linkto,des+'/'+src)
+            else:
+                os.symlink(linkto,des)
+    elif fileInfo.st_nlink>1:
+        if os.path.exists(des):
+            if os.path.isdir(des):
+                os.link(linkto,des+ '/' +src)
+            elif os.path.isfile(des):
+                os.unlink(des)
+                os.link(linkto,des)
+        else:
+            if des[-1] == '/':
+                name = des.split('/')
+                os.mkdir(os.path.abspath(name[0]))
+                os.link(linkto,des+'/'+src)
+            else:
+                os.link(linkto,des)
+    else:
         file1 = os.open(src,os.O_RDONLY)
         fileInfo = os.stat(src)
+        linkto = os.readlink(src)
         if os.path.exists(des):
             if os.path.isdir(des):
                 file2 = os.open(des+'/'+src,os.O_WRONLY|os.O_CREAT)
@@ -28,7 +59,7 @@ def copy(src,des):
                 file2 = os.open(des+'/'+src,os.O_WRONLY|os.O_CREAT)
             else:
                 file2 = os.open(des,os.O_WRONLY|os.O_CREAT)
-        os.write(file2,os.read(file1,fileInfo.st_size))
-        os.utime(file2,(fileInfo.st_ctime, fileInfo.st_mtime))
-        os.chmod(file2,fileInfo.st_mode)
+    os.write(file2,os.read(file1,fileInfo.st_size))
+    os.utime(file2,(fileInfo.st_ctime, fileInfo.st_mtime))
+    os.chmod(file2,fileInfo.st_mode)
 copy(args.SRC_FILE,args.DESTINATION)
