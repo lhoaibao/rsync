@@ -3,16 +3,6 @@ import argparse
 import os
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("SRC_FILE", type=str)
-parser.add_argument("DESTINATION", type=str)
-parser.add_argument("-c", "--checksum", action ='store_true',
-                   help='skip based on checksum, not mod-time & size')
-parser.add_argument("-u", "--update", action ='store_true',
-                   help='update destination files in-place')
-args = parser.parse_args()
-
-
 def getPath(des, fileName):
     if os.path.isdir(des):
         if des[-1] != '/':
@@ -25,7 +15,7 @@ def getPath(des, fileName):
 #create a folder if des has '/'' at bottom
 def createFolder(des):
     name = des.split('/')
-    os.mkdir(os.path.abspath(name[0]))
+    os.mkdir(os.path.abspath(name[0]), 0o755)
 
 
 def setTimeAndMode(des,fInfo,type):
@@ -52,29 +42,58 @@ def copyHard(src,des):
 
 
 def copyNor(src,des):
-    file1 = os.open(src,os.O_RDONLY)
+    file1 = os.open(src,os.O_RDWR)
     fileInfo1 = os.stat(src)
     contFile1 = os.read(file1,fileInfo1.st_size)
     if os.path.exists(des):
-        file2 = os.open(getPath(des,src),os.O_WRONLY|os.O_CREAT)
         fileInfo2 = os.stat(des)
-        contFile2 = os.read(file2,fileInfo2.st_size)
-        count = 0
-        # while count < fileInfo1.st_size:
+        if fileInfo1.st_size >= fileInfo2.st_size:
+            file2 = os.open(getPath(des,src),os.O_RDWR|os.O_CREAT)
+            contFile2 = os.read(file2,fileInfo2.st_size)
+            count = 0
+            while count < fileInfo1.st_size:
+                os.lseek(file1, count, 0)
+                os.lseek(file2, count, 0)
+                if count < len(contFile2):
+                    if contFile2[count] != contFile1[count]:
+                        os.write(file2, os.read(file1, 1))
+                else:
+                    os.write(file2, os.read(file1, 1))
+                count = count + 1
 
     else:
         if des[-1] == '/':
             createFolder(des)
-            file2 = os.open(getPath(des,src),os.O_WRONLY|os.O_CREAT)
-            os.write(file2,contFile1)
-    setTimeAndMode(file2,fileInfo,0)
+        file2 = os.open(getPath(des,src),os.O_WRONLY|os.O_CREAT)
+        os.write(file2,contFile1)
+    setTimeAndMode(file2,fileInfo1,0)
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("SRC_FILE", type=str)
+    parser.add_argument("DESTINATION", type=str)
+    parser.add_argument("-c", "--checksum", action ='store_true',
+                       help='skip based on checksum, not mod-time & size')
+    parser.add_argument("-u", "--update", action ='store_true',
+                       help='update destination files in-place')
+    args = parser.parse_args()
+    if not os.path.exists(args.SRC_FILE):
+        print("rsync: link_stat \"" + os.path.abspath(args.SRC_FILE) +
+        "\" failed: No such file or directory (2)")
+        return
+    try:
+        f1 = os.open(args.SRC_FILE, os.O_RDONLY)
+    except PermissionError:
+        print("rsync: send_files failed to open \"" +
+        os.path.abspath(args.SRC_FILE)+"\": Permission denied (13)")
+        return
     if os.path.islink(args.SRC_FILE):
         linkto = os.readlink(args.SRC_FILE)
         copySym(args.SRC_FILE,args.DESTINATION,linkto)
     elif os.stat(args.SRC_FILE).st_nlink>1:
         copyHard(args.SRC_FILE,args.DESTINATION)
+    else:
+        copyNor(args.SRC_FILE,args.DESTINATION)
 
 if __name__ == '__main__':
     main()
