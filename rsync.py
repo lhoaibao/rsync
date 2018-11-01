@@ -12,7 +12,7 @@ def getPathDes(des, fileName):
     return des
 
 
-def getPathSrc(src):
+def getPathName(src):
     if '/' in src:
         return os.path.basename(src)
     return src
@@ -92,14 +92,17 @@ def copyFileLink(src, des):
 
 
 def copyFileNor(src, des):
+    f1 = os.open(src, os.O_RDONLY)
     if os.path.exists(des):
         if getInfo(src).st_size >= getInfo(des).st_size:
             updateContent(src, des)
-            return
-    f1 = os.open(src, os.O_RDONLY)
-    os.remove(des)
-    f2 = os.open(des, os.O_WRONLY | os.O_CREAT)
-    os.write(f2, os.read(f1, os.path.getsize(f1)))
+        else:
+            os.remove(getPathName(des))
+            f2 = os.open(des, os.O_WRONLY | os.O_CREAT)
+            os.write(f2, os.read(f1, os.path.getsize(f1)))
+    else:
+        f2 = os.open(des, os.O_WRONLY | os.O_CREAT)
+        os.write(f2, os.read(f1, os.path.getsize(f1)))
 
 
 def copyFile(src, des):
@@ -121,7 +124,7 @@ def rsync(src, des, u_option, c_option):
  Permission denied (13)")
         return
     createDir(des)
-    des = getPathDes(des, getPathSrc(src))
+    des = getPathDes(des, getPathName(src))
     srcInfo = getInfo(src)
     if u_option:
         if srcInfo.st_mtime > getInfo(des).st_mtime:
@@ -142,6 +145,8 @@ def main():
                         help='skip based on checksum, not mod-time & size')
     parser.add_argument("-u", "--update", action='store_true',
                         help='update destination files in-place')
+    parser.add_argument("-r", "--recursive", action='store_true',
+                        help='recurse into directories')
     args = parser.parse_args()
     rsync(args.SRC_FILE, args.DESTINATION, args.update, args.checksum)
 
