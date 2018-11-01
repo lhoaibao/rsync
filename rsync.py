@@ -18,8 +18,8 @@ def createFolder(des):
     os.mkdir(os.path.abspath(name[0]), 0o755)
 
 
-def setTimeAndMode(des, fInfo, type):
-    if type == 1:
+def updateTime_Per(des, fInfo, bool):
+    if bool:
         os.utime(des, (fInfo.st_atime, fInfo.st_mtime), follow_symlinks=False)
     else:
         os.utime(des, (fInfo.st_atime, fInfo.st_mtime))
@@ -75,6 +75,40 @@ def copyNor(src, des):
         os.write(file2, contFile1)
         setTimeAndMode(file2, fileInfo1, 0)
 
+def checkMTime(srcInfo, desInfo):
+    if srcInfo and desInfo:
+        return srcInfo.st_mtime == desInfo.st_mtime
+    return False
+
+def checkSize(src, des):
+    if srcInfo and desInfo:
+        return srcInfo.st_size == desInfo.st_size
+    return False
+
+def getInfo(item):
+    if not os.path.exists(item):
+        return False
+    return os.stat(item)
+
+def checkSymlink(item):
+    return os.path.islink(item)
+
+def checkHardLink(itemInfo):
+    return itemInfo.st_nlink > 1
+
+def copy(src, des, u_option):
+    srcInfo = getInfo(src)
+    desInfo = getInfo(des)
+    if os.path.exists(des):
+        os.unlink(des)
+    if checkSymlink(src):
+        pathSRC = os.readlink(src)
+        os.symlink(pathSRC, des)
+    elif checkHardLink(srcInfo):
+
+
+
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -117,5 +151,5 @@ def main():
                 copyNor(args.SRC_FILE, args.DESTINATION)
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
