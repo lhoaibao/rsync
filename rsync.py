@@ -3,7 +3,7 @@ import argparse
 import os
 
 
-def getPath(des, fileName):
+def getPathDes(des, fileName):
     if os.path.isdir(des):
         if des[-1] != '/':
             return des + '/' + fileName
@@ -12,102 +12,125 @@ def getPath(des, fileName):
     return des
 
 
-# create a folder if des has '/'' at bottom
-def createFolder(des):
-    name = des.split('/')
-    os.mkdir(os.path.abspath(name[0]), 0o755)
+def getPathSrc(src):
+    if '/' in src:
+        return os.path.basename(src)
+    return src
 
-
-def updateTime_Per(des, fInfo, bool):
-    if bool:
-        os.utime(des, (fInfo.st_atime, fInfo.st_mtime), follow_symlinks=False)
-    else:
-        os.utime(des, (fInfo.st_atime, fInfo.st_mtime))
-        os.chmod(des, fInfo.st_mode)
-
-
-def copySym(src, des, linkto):
-    fileInfo = os.lstat(src)
-    if des[-1] == '/':
-        createFolder(des)
-    os.symlink(linkto, getPath(des, src))
-    setTimeAndMode(getPath(des, src), fileInfo, 1)
-
-
-def copyHard(src, des):
-    fileInfo = os.stat(src)
-    if des[-1] == '/':
-        createFolder(des)
-    os.link(src, getPath(des, src))
-    setTimeAndMode(getPath(des, src), fileInfo, 1)
-
-
-def copyNor(src, des):
-    file1 = os.open(src, os.O_RDWR)
-    fileInfo1 = os.stat(src)
-    contFile1 = os.read(file1, fileInfo1.st_size)
-    if os.path.exists(des):
-        if os.path.isfile(des):
-            fileInfo2 = os.stat(des)
-            if fileInfo1.st_size >= fileInfo2.st_size:
-                file2 = os.open(getPath(des, src), os.O_RDWR | os.O_CREAT)
-                contFile2 = os.read(file2, fileInfo2.st_size)
-                count = 0
-                while count < fileInfo1.st_size:
-                    os.lseek(file1, count, 0)
-                    os.lseek(file2, count, 0)
-                    if count < len(contFile2):
-                        if contFile2[count] != contFile1[count]:
-                            os.write(file2, os.read(file1, 1))
-                    else:
-                        os.write(file2, os.read(file1, 1))
-                    count = count + 1
-                setTimeAndMode(file2, fileInfo1, 0)
-        else:
-            file2 = os.open(getPath(des, src), os.O_WRONLY | os.O_CREAT)
-            os.write(file2, contFile1)
-            setTimeAndMode(file2, fileInfo1, 0)
-
-    else:
-        if des[-1] == '/':
-            createFolder(des)
-        file2 = os.open(getPath(des, src), os.O_WRONLY | os.O_CREAT)
-        os.write(file2, contFile1)
-        setTimeAndMode(file2, fileInfo1, 0)
-
-def checkMTime(srcInfo, desInfo):
-    if srcInfo and desInfo:
-        return srcInfo.st_mtime == desInfo.st_mtime
-    return False
-
-def checkSize(src, des):
-    if srcInfo and desInfo:
-        return srcInfo.st_size == desInfo.st_size
-    return False
 
 def getInfo(item):
     if not os.path.exists(item):
         return False
+    elif os.path.islink(item):
+        return os.lstat(item)
     return os.stat(item)
+
+
+def createDir(des):
+    if not os.path.exists(des) and '/' in des:
+        if des[-1] == '/':
+            os.mkdir(des, 0o755)
+        else:
+            if not os.path.exists(os.path.dirname(des)):
+                os.mkdir(os.path.dirname(des), 0o755)
+
 
 def checkSymlink(item):
     return os.path.islink(item)
 
-def checkHardLink(itemInfo):
-    return itemInfo.st_nlink > 1
 
-def copy(src, des, u_option):
-    srcInfo = getInfo(src)
-    desInfo = getInfo(des)
+def checkHardlink(item):
+    return os.stat(item).st_nlink > 1
+
+
+def checkMTime(src, des):
+    if getInfo(des):
+        return getInfo(src).st_mtime == getInfo(des).st_mtime
+    return False
+
+
+def checkSize(src, des):
+    if getInfo(des):
+        return getInfo(src).st_size == getInfo(des).st_size
+    return False
+
+
+def updateTime_Per(des, srcInfo, isSymLink):
+    if isSymLink:
+        os.utime(des, (srcInfo.st_atime, srcInfo.st_mtime),
+                 follow_symlinks=False)
+    else:
+        os.utime(des, (srcInfo.st_atime, srcInfo.st_mtime))
+        os.chmod(des, srcInfo.st_mode)
+
+
+def updateContent(src, des):
+    f1 = os.open(src, os.O_RDONLY)
+    f2 = os.open(des, os.O_RDWR | os.O_CREAT)
+    f1Content = os.read(f1, os.path.getsize(src))
+    f2Content = os.read(f2, os.path.getsize(des))
+    length = 0
+    while length < os.path.getsize(src):
+        os.lseek(f1, length, 0)
+        os.lseek(f2, length, 0)
+        if length < len(f2Content):
+            if f2Content[length] != f1Content[length]:
+                os.write(f2, os.read(f1, 1))
+        else:
+            os.write(f2, os.read(f1, 1))
+        length += 1
+
+
+def copyFileLink(src, des):
     if os.path.exists(des):
         os.unlink(des)
     if checkSymlink(src):
         pathSRC = os.readlink(src)
         os.symlink(pathSRC, des)
-    elif checkHardLink(srcInfo):
+    elif checkHardlink(src):
+        os.link(src, des)
 
 
+def copyFileNor(src, des):
+    if os.path.exists(des):
+        if getInfo(src).st_size >= getInfo(des).st_size:
+            updateContent(src, des)
+    else:
+        f1 = os.open(src, os.O_RDONLY)
+        f2 = os.open(des, os.O_RDWR | os.O_CREAT)
+        os.write(f2, os.read(f1, os.path.getsize(src)))
 
+
+def copyFile(src, des):
+    if checkSymlink(src) or checkHardlink(src):
+        copyFileLink(src, des)
+    else:
+        copyFileNor(src, des)
+
+
+def rsync(src, des, u_option, c_option):
+    if not getInfo(src):
+        print("rsync: link_stat \"" + os.path.abspath(src) + "\" failed:\
+ No such file or directory (2)")
+        return
+    try:
+        f1 = os.open(src, os.O_RDONLY)
+    except PermissionError:
+        print("rsync: send_files failed to open \""+os.path.abspath(src)+"\":\
+ Permission denied (13)")
+        return
+    createDir(des)
+    des = getPathDes(des, getPathSrc(src))
+    srcInfo = getInfo(src)
+    if u_option:
+        if srcInfo.st_mtime > getInfo(des).st_mtime:
+            copyFile(src, des)
+    elif c_option:
+        copyFile(src, des)
+    else:
+        if not checkMTime(src, des) or not checkSize(src, des):
+            copyFile(src, des)
+    updateTime_Per(des, srcInfo, os.path.islink(src))
 
 
 def main():
@@ -119,37 +142,8 @@ def main():
     parser.add_argument("-u", "--update", action='store_true',
                         help='update destination files in-place')
     args = parser.parse_args()
-    if not os.path.exists(args.SRC_FILE):
-        print("rsync: link_stat \"" + os.path.abspath(args.SRC_FILE) +
-              "\" failed: No such file or directory (2)")
-        return
-    try:
-        f1 = os.open(args.SRC_FILE, os.O_RDONLY)
-    except PermissionError:
-        print("rsync: send_files failed to open \"" +
-              os.path.abspath(args.SRC_FILE)+"\": Permission denied (13)")
-        return
-    ifo1 = os.stat(args.SRC_FILE)
-    ifo2 = os.stat(args.DESTINATION)
-    if not args.update:
-        if (ifo1.st_size != ifo2.st_size)or(ifo1.st_mtime != ifo2.st_mtime):
-            if os.path.islink(args.SRC_FILE):
-                linkto = os.readlink(args.SRC_FILE)
-                copySym(args.SRC_FILE, args.DESTINATION, linkto)
-            elif os.stat(args.SRC_FILE).st_nlink > 1:
-                copyHard(args.SRC_FILE, args.DESTINATION)
-            else:
-                copyNor(args.SRC_FILE, args.DESTINATION)
-    else:
-        if ifo1.st_mtime > ifo2.st_mtime:
-            if os.path.islink(args.SRC_FILE):
-                linkto = os.readlink(args.SRC_FILE)
-                copySym(args.SRC_FILE, args.DESTINATION, linkto)
-            elif os.stat(args.SRC_FILE).st_nlink > 1:
-                copyHard(args.SRC_FILE, args.DESTINATION)
-            else:
-                copyNor(args.SRC_FILE, args.DESTINATION)
+    rsync(args.SRC_FILE, args.DESTINATION, args.update, args.checksum)
 
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
