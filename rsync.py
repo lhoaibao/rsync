@@ -29,10 +29,10 @@ def getInfo(item):
 def createDir(des):
     if not os.path.exists(des) and '/' in des:
         if des[-1] == '/':
-            os.mkdir(des, 0o755)
+            os.mkdir(des)
         else:
             if not os.path.exists(os.path.dirname(des)):
-                os.mkdir(os.path.dirname(des), 0o755)
+                os.mkdir(os.path.dirname(des))
 
 
 def checkSymlink(item):
@@ -95,10 +95,11 @@ def copyFileNor(src, des):
     if os.path.exists(des):
         if getInfo(src).st_size >= getInfo(des).st_size:
             updateContent(src, des)
-    else:
-        f1 = os.open(src, os.O_RDONLY)
-        f2 = os.open(des, os.O_RDWR | os.O_CREAT)
-        os.write(f2, os.read(f1, os.path.getsize(src)))
+            return
+    f1 = os.open(src, os.O_RDONLY)
+    os.remove(des)
+    f2 = os.open(des, os.O_WRONLY | os.O_CREAT)
+    os.write(f2, os.read(f1, os.path.getsize(f1)))
 
 
 def copyFile(src, des):
@@ -130,7 +131,7 @@ def rsync(src, des, u_option, c_option):
     else:
         if not checkMTime(src, des) or not checkSize(src, des):
             copyFile(src, des)
-    updateTime_Per(des, srcInfo, os.path.islink(src))
+    updateTime_Per(des, srcInfo, checkSymlink(src))
 
 
 def main():
