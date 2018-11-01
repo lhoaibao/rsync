@@ -97,7 +97,7 @@ def copyFileNor(src, des):
         if getInfo(src).st_size >= getInfo(des).st_size:
             updateContent(src, des)
         else:
-            os.remove(getPathName(des))
+            os.remove(des)
             f2 = os.open(des, os.O_WRONLY | os.O_CREAT)
             os.write(f2, os.read(f1, os.path.getsize(f1)))
     else:
