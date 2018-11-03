@@ -26,13 +26,16 @@ def getInfo(item):
     return os.stat(item)
 
 
-def createDir(des):
-    if not os.path.exists(des) and '/' in des:
-        if des[-1] == '/':
-            os.mkdir(des)
-        else:
-            if not os.path.exists(os.path.dirname(des)):
-                os.mkdir(os.path.dirname(des))
+def createDir(des, r_option):
+    if r_option and not os.path.exists(des):
+        os.mkdir(des)
+    else:
+        if not os.path.exists(des) and '/' in des:
+            if des[-1] == '/':
+                os.mkdir(des)
+            else:
+                if not os.path.exists(os.path.dirname(des)):
+                    os.mkdir(os.path.dirname(des))
 
 
 def checkSymlink(item):
@@ -95,6 +98,8 @@ def copyFileNor(src, des):
     f1 = os.open(src, os.O_RDONLY)
     if os.path.exists(des):
         if getInfo(src).st_size >= getInfo(des).st_size:
+            if checkPerFileFault(des, isDes=True):
+                os.remove(des)
             updateContent(src, des)
         else:
             os.remove(des)
@@ -112,18 +117,31 @@ def copyFile(src, des):
         copyFileNor(src, des)
 
 
-def rsync(src, des, u_option, c_option):
-    if not getInfo(src):
-        print("rsync: link_stat \"" + os.path.abspath(src) + "\" failed:\
- No such file or directory (2)")
-        return
+def checkNoFileFault(item):
+    if not getInfo(item):
+        print("rsync: link_stat \"" + os.path.abspath(item) +
+              "\" failed: No such file or directory (2)")
+        return True
+    return False
+
+
+def checkPerFileFault(item, isDes):
     try:
-        f1 = os.open(src, os.O_RDONLY)
+        f1 = os.open(item, os.O_RDONLY)
     except PermissionError:
-        print("rsync: send_files failed to open \""+os.path.abspath(src)+"\":\
- Permission denied (13)")
+        if not isDes:
+            print("rsync: send_files failed to open \""+os.path.abspath(item)+
+                  "\": Permission denied (13)")
+        return True
+    return False
+
+
+def copy(src, des, u_option, c_option, r_option):
+    if checkNoFileFault(src):
         return
-    createDir(des)
+    if checkPerFileFault(src, isDes=False):
+        return
+    createDir(des, r_option)
     des = getPathDes(des, getPathName(src))
     srcInfo = getInfo(src)
     if u_option:
@@ -137,9 +155,17 @@ def rsync(src, des, u_option, c_option):
     updateTime_Per(des, srcInfo, checkSymlink(src))
 
 
+def rsync(srcs, des ,u_option, c_option, r_option):
+    if r_option:
+        for src in srcs:
+            copy(src, des, u_option, c_option, r_option)
+    else:
+        copy(srcs[0], des, u_option, c_option, r_option)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("SRC_FILE", type=str)
+    parser.add_argument("SRC_FILE", type=str, nargs="+")
     parser.add_argument("DESTINATION", type=str)
     parser.add_argument("-c", "--checksum", action='store_true',
                         help='skip based on checksum, not mod-time & size')
@@ -148,7 +174,7 @@ def main():
     parser.add_argument("-r", "--recursive", action='store_true',
                         help='recurse into directories')
     args = parser.parse_args()
-    rsync(args.SRC_FILE, args.DESTINATION, args.update, args.checksum)
+    rsync(args.SRC_FILE, args.DESTINATION, args.update, args.checksum, args.recursive)
 
 
 if __name__ == '__main__':
