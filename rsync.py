@@ -100,7 +100,7 @@ def copyFileNor(src, des):
     if os.path.exists(des):
         if getInfo(src).st_size >= getInfo(des).st_size:
             if checkPerFileFault(des):
-                os.remove(des)
+                os.unlink(des)
             updateContent(src, des)
         else:
             os.remove(des)
