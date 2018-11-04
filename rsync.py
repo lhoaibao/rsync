@@ -130,8 +130,6 @@ def checkPerFileFault(item):
     try:
         f1 = os.open(item, os.O_RDONLY & os.O_WRONLY)
     except PermissionError:
-        print("rsync: send_files failed to open \""+os.path.abspath(item) +
-              "\": Permission denied (13)")
         return True
     return False
 
@@ -140,6 +138,8 @@ def copy(src, des, u_option, c_option, r_option, isSRCMore, checkRALL):
     if checkNoFileFault(src):
         return
     if checkPerFileFault(src):
+        print("rsync: send_files failed to open \""+os.path.abspath(item) +
+              "\": Permission denied (13)")
         return
     createDir(src, des, isSRCMore, r_option)
     des1 = getPathDes(des, getPathName(src))
