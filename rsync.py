@@ -29,9 +29,9 @@ def getInfo(item):
 def createDir(src, des, isSRCMore, r_option):
     if isSRCMore and not os.path.exists(des):
         os.mkdir(des)
-    if r_option and not os.path.exists(des):
+    elif r_option and not os.path.exists(des):
         os.mkdir(des)
-    if not os.path.exists(des) and '/' in des:
+    elif not os.path.exists(des) and '/' in des:
         if des[-1] == '/':
             os.mkdir(des)
         else:
@@ -136,23 +136,42 @@ def checkPerFileFault(item):
     return False
 
 
-def copy(src, des, u_option, c_option, r_option, isSRCMore):
+def copy(src, des, u_option, c_option, r_option, isSRCMore, checkRALL):
     if checkNoFileFault(src):
         return
     if checkPerFileFault(src):
         return
     createDir(src, des, isSRCMore, r_option)
-    des = getPathDes(des, getPathName(src))
+    des1 = getPathDes(des, getPathName(src))
     srcInfo = getInfo(src)
     if u_option:
-        if srcInfo.st_mtime > getInfo(des).st_mtime:
-            copyFile(src, des)
+        if srcInfo.st_mtime > getInfo(des1).st_mtime:
+            copyFile(src, des1)
     elif c_option:
-        copyFile(src, des)
+        copyFile(src, des1)
+    elif r_option:
+        if not checkRALL:
+            things = src.split('/')
+            des1 = des
+            for i in range(len(things)-1):
+                des1 += '/' + things[i]
+                createDir(src, des1, isSRCMore, r_option)
+            des1 += '/' + things[-1]
+            copyFile(src, des1)
+        else:
+            things = src.split('/')
+            things.pop(0)
+            des1 = des
+            for i in range(len(things)-1):
+                des1 += '/' + things[i]
+                createDir(src, des1, isSRCMore, r_option)
+            des1 += '/' + things[-1]
+            copyFile(src, des1)
+
     else:
-        if not checkMTime(src, des) or not checkSize(src, des):
-            copyFile(src, des)
-    updateTime_Per(des, srcInfo, checkSymlink(src))
+        if not checkMTime(src, des1) or not checkSize(src, des1):
+            copyFile(src, des1)
+    updateTime_Per(des1, srcInfo, checkSymlink(src))
 
 
 def getListOfFiles(dirName):
@@ -177,7 +196,12 @@ def rsync(srcs, des, u_option, c_option, r_option):
         for src in srcs:
             if os.path.isdir(src):
                 for it in getListOfFiles(src):
-                    copy(it, des, u_option, c_option, r_option, len(srcs) > 1)
+                    if src[-1] != '/':
+                        copy(it, des, u_option, c_option,
+                             r_option, len(srcs) > 1, False)
+                    else:
+                        copy(it, des, u_option, c_option,
+                             r_option, len(srcs) > 1, True)
             if os.path.isfile(src):
                 copy(src, des, u_option, c_option, r_option, len(srcs) > 1)
     else:
@@ -196,8 +220,6 @@ def main():
     parser.add_argument("-r", "--recursive", action='store_true',
                         help='recurse into directories')
     args = parser.parse_args()
-    files = []
-    folders = []
     rsync(args.SRC_FILE, args.DESTINATION, args.update,
           args.checksum, args.recursive)
 
