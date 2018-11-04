@@ -163,11 +163,11 @@ def rsync(srcs, des, u_option, c_option, r_option):
         for src in srcs:
             if os.path.isdir(src):
                 for item in os.scandir(src):
-                    files.append(item.name)
+                    files.append(item)
             if os.path.isfile(src):
-                files.append(src)
+                files.append(item)
         for item in files:
-            copy(item, des, u_option, c_option, r_option, len(files) > 1)
+            copy(src, des, u_option, c_option, r_option, len(files) > 1)
     else:
         for src in srcs:
             if copy(src, des, u_option, c_option, r_option, len(srcs) > 1):
