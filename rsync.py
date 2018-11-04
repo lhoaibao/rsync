@@ -203,10 +203,11 @@ def rsync(srcs, des, u_option, c_option, r_option):
                         copy(it, des, u_option, c_option,
                              r_option, len(srcs) > 1, True)
             if os.path.isfile(src):
-                copy(src, des, u_option, c_option, r_option, len(srcs) > 1)
+                copy(src, des, u_option, c_option,
+                     r_option, len(srcs) > 1, False)
     else:
         for src in srcs:
-            copy(src, des, u_option, c_option, r_option, len(srcs) > 1)
+            copy(src, des, u_option, c_option, r_option, len(srcs) > 1, False)
 
 
 def main():
