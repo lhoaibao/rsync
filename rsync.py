@@ -26,16 +26,15 @@ def getInfo(item):
     return os.stat(item)
 
 
-def createDir(des, r_option):
-    if r_option and not os.path.exists(des):
+def createDir(src, des, isSRCMore):
+    if isSRCMore and not os.path.exists(des):
         os.mkdir(des)
-    else:
-        if not os.path.exists(des) and '/' in des:
-            if des[-1] == '/':
-                os.mkdir(des)
-            else:
-                if not os.path.exists(os.path.dirname(des)):
-                    os.mkdir(os.path.dirname(des))
+    if not os.path.exists(des) and '/' in des:
+        if des[-1] == '/':
+            os.mkdir(des)
+        else:
+            if not os.path.exists(os.path.dirname(des)):
+                os.mkdir(os.path.dirname(des))
 
 
 def checkSymlink(item):
@@ -136,12 +135,12 @@ def checkPerFileFault(item, isDes):
     return False
 
 
-def copy(src, des, u_option, c_option, r_option):
+def copy(src, des, u_option, c_option, r_option, isSRCMore):
     if checkNoFileFault(src):
-        return
+        return True
     if checkPerFileFault(src, isDes=False):
-        return
-    createDir(des, r_option)
+        return True
+    createDir(src, des, isSRCMore)
     des = getPathDes(des, getPathName(src))
     srcInfo = getInfo(src)
     if u_option:
@@ -156,11 +155,11 @@ def copy(src, des, u_option, c_option, r_option):
 
 
 def rsync(srcs, des ,u_option, c_option, r_option):
-    if r_option:
-        for src in srcs:
-            copy(src, des, u_option, c_option, r_option)
-    else:
-        copy(srcs[0], des, u_option, c_option, r_option)
+    folders = []
+    files = []
+    for src in srcs:
+        if copy(src, des, u_option, c_option, r_option, len(srcs) > 1):
+            break
 
 
 def main():
