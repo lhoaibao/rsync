@@ -138,7 +138,7 @@ def copy(src, des, u_option, c_option, r_option, isSRCMore, checkRALL):
     if checkNoFileFault(src):
         return
     if checkPerFileFault(src):
-        print("rsync: send_files failed to open \""+os.path.abspath(item) +
+        print("rsync: send_files failed to open \""+os.path.abspath(src) +
               "\": Permission denied (13)")
         return
     createDir(src, des, isSRCMore, r_option)
