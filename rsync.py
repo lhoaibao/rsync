@@ -128,7 +128,7 @@ def checkNoFileFault(item):
 
 def checkPerFileFault(item):
     try:
-        f1 = os.open(item, os.O_RDONLY)
+        f1 = os.open(item, os.O_RDONLY | os.O_WRONLY)
     except PermissionError:
         print("rsync: send_files failed to open \""+os.path.abspath(item) +
               "\": Permission denied (13)")
