@@ -26,8 +26,10 @@ def getInfo(item):
     return os.stat(item)
 
 
-def createDir(src, des, isSRCMore):
+def createDir(src, des, isSRCMore, r_option):
     if isSRCMore and not os.path.exists(des):
+        os.mkdir(des)
+    if r_option and not os.path.exists(des):
         os.mkdir(des)
     if not os.path.exists(des) and '/' in des:
         if des[-1] == '/':
@@ -129,7 +131,7 @@ def checkPerFileFault(item, isDes):
         f1 = os.open(item, os.O_RDONLY)
     except PermissionError:
         if not isDes:
-            print("rsync: send_files failed to open \""+os.path.abspath(item)+
+            print("rsync: send_files failed to open \""+os.path.abspath(item) +
                   "\": Permission denied (13)")
         return True
     return False
@@ -140,7 +142,7 @@ def copy(src, des, u_option, c_option, r_option, isSRCMore):
         return True
     if checkPerFileFault(src, isDes=False):
         return True
-    createDir(src, des, isSRCMore)
+    createDir(src, des, isSRCMore, r_option)
     des = getPathDes(des, getPathName(src))
     srcInfo = getInfo(src)
     if u_option:
@@ -154,12 +156,22 @@ def copy(src, des, u_option, c_option, r_option, isSRCMore):
     updateTime_Per(des, srcInfo, checkSymlink(src))
 
 
-def rsync(srcs, des ,u_option, c_option, r_option):
+def rsync(srcs, des, u_option, c_option, r_option):
     folders = []
     files = []
-    for src in srcs:
-        if copy(src, des, u_option, c_option, r_option, len(srcs) > 1):
-            break
+    if r_option:
+        for src in srcs:
+            if os.path.isdir(src):
+                for item in os.scandir(src):
+                    files.append(item.name)
+            if os.path.isfile(src):
+                files.append(src)
+        for item in files:
+            copy(item, des, u_option, c_option, r_option, len(files) > 1)
+    else:
+        for src in srcs:
+            if copy(src, des, u_option, c_option, r_option, len(srcs) > 1):
+                break
 
 
 def main():
@@ -173,7 +185,8 @@ def main():
     parser.add_argument("-r", "--recursive", action='store_true',
                         help='recurse into directories')
     args = parser.parse_args()
-    rsync(args.SRC_FILE, args.DESTINATION, args.update, args.checksum, args.recursive)
+    rsync(args.SRC_FILE, args.DESTINATION,
+          args.update, args.checksum, args.recursive)
 
 
 if __name__ == '__main__':
